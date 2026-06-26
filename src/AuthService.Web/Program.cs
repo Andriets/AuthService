@@ -29,9 +29,10 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     await app.ConfigureDatabaseAsync();
-    app.UseSwagger();
-    app.UseSwaggerUI();
 }
+
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.UseExceptionHandler();
 app.MapDefaultEndpoints();

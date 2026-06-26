@@ -56,38 +56,6 @@ All endpoints are prefixed with `/v1`.
 
 Responses are wrapped in a standard `ApiResponse<T>` envelope.
 
-## Project Structure
-
-```
-AuthService/
-├── src/
-│   ├── AuthService.slnx
-│   ├── AuthService.AppHost/        # Aspire orchestration — defines services and infrastructure
-│   ├── AuthService.ServiceDefaults/# Shared OpenTelemetry, health checks, service discovery
-│   └── AuthService.Web/            # Main web API
-│       ├── Core/
-│       │   ├── Common/             # ApiResponse, PagedResponse
-│       │   ├── Entities/           # Domain entities
-│       │   ├── Exceptions/
-│       │   └── Interfaces/         # IEndpoint
-│       ├── Extensions/             # Service registration helpers
-│       ├── Features/               # Feature-sliced domain logic
-│       │   └── Users/
-│       │       ├── CreateUser/
-│       │       ├── DeleteUser/
-│       │       ├── GetUserById/
-│       │       ├── GetUsers/
-│       │       └── UpdateUser/
-│       ├── Infrastructure/
-│       │   └── Data/
-│       │       ├── AppDbContext.cs
-│       │       ├── Configurations/ # EF Core Fluent API configs
-│       │       ├── DataSeeder.cs
-│       │       └── Migrations/
-│       └── Middleware/             # GlobalExceptionHandler
-└── tests/                          # (to be added)
-```
-
 ## Database Migrations
 
 ```bash
