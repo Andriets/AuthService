@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+name: auth-service
+services:  
+  app:
+    language: dotnet
+    project: ./src/AuthService.AppHost/AuthService.AppHost.csproj
+    host: containerapp
