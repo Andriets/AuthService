@@ -10,9 +10,15 @@ var postgres = builder.AddAzurePostgresFlexibleServer("postgres")
     )
     .AddDatabase("AuthDB");
 
-builder.AddProject<Projects.AuthService_Web>("authservice-web")
+var web = builder.AddProject<Projects.AuthService_Web>("authservice-web")
     .WithExternalHttpEndpoints()
     .WithReference(postgres)
     .WaitFor(postgres);
+
+if (builder.ExecutionContext.IsPublishMode)
+{
+    web.WithEnvironment("ConnectionStrings__AuthDB",
+        builder.Configuration["DATABASE_CONNECTION_STRING"]!);
+}
 
 builder.Build().Run();
