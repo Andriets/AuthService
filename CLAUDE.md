@@ -1,5 +1,6 @@
 # AuthService
 
+
 .NET 10 Aspire application providing authentication and user management APIs, deployed to Azure via `azd`.
 
 ## Projects
