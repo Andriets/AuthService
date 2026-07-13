@@ -1,60 +1,85 @@
-using AuthService.Web.Core.Common;
+using System.Security.Claims;
+using AuthService.Web.Core.Constants;
 using AuthService.Web.Core.Entities;
 using AuthService.Web.Core.Interfaces;
 using AuthService.Web.Infrastructure.Data;
-using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 
-namespace AuthService.Web.Features.Users.CreateUser;
+namespace AuthService.Web.Features.Users.InviteUser;
 
-public class CreateUserEndpoint : IEndpoint
+public class InviteUserEndpoint : IEndpoint
 {
+    private const int InviteTokenLifetimeDays = 7;
+
     public void MapEndpoint(IEndpointRouteBuilder builder)
     {
         builder.MapPost("v1/users", Handler)
-            .WithName("CreateUser")
-            .WithSummary("Create a new user")
-            .Produces<ApiResponse<CreateUserResponse>>(StatusCodes.Status201Created)
+            .WithName("InviteUser")
+            .WithSummary("Invite a new user to the organization")
+            .Produces<InviteUserResponse>(StatusCodes.Status201Created)
             .ProducesValidationProblem()
-            .WithTags("Users");
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .WithTags("Users")
+            .RequireAuthorization(PolicyConstants.AdminOnly);
     }
 
     private static async Task<IResult> Handler(
-        CreateUserRequest request,
+        InviteUserRequest request,
+        ClaimsPrincipal claimsPrincipal,
         AppDbContext db,
-        IValidator<CreateUserRequest> validator,
+        ITokenService tokenService,
         TimeProvider timeProvider,
         CancellationToken cancellationToken)
     {
-        var validation = await validator.ValidateAsync(request, cancellationToken);
-        if (!validation.IsValid)
-            return Results.ValidationProblem(validation.ToDictionary());
+        var tenantId = Guid.Parse(claimsPrincipal.FindFirst(JwtClaimConstants.TenantId)!.Value);
 
-        var user = new User
+        var emailExists = await db.Users
+            .AnyAsync(
+                u => u.Email == request.Email && u.TenantUsers.Any(tu => tu.TenantId == tenantId),
+                cancellationToken);
+
+        if (emailExists)
+            return Results.Conflict(new { error = "A user with this email already exists in this organization." });
+
+        var now = timeProvider.GetUtcNow();
+        var expiresAt = now.AddDays(InviteTokenLifetimeDays);
+        var (rawToken, tokenHash) = tokenService.GenerateUserToken();
+        var userId = Guid.NewGuid();
+
+        db.Users.Add(new User
         {
-            Id = Guid.NewGuid(),
+            Id = userId,
             Email = request.Email,
             FirstName = request.FirstName,
             LastName = request.LastName,
-            PasswordHash = request.Password, // TODO: replace with bcrypt hashing
+            Username = string.Empty,
             IsActive = true,
-            CreatedAt = timeProvider.GetUtcNow()
-        };
+            IsActivated = false,
+            CreatedAt = now
+        });
 
-        try
+        db.TenantUsers.Add(new TenantUser
         {
-            db.Users.Add(user);
-            await db.SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateException)
+            TenantId = tenantId,
+            UserId = userId,
+            CreatedAt = now
+        });
+
+        db.UserTokens.Add(new UserToken
         {
-            return Results.Conflict(new { error = "A user with this email already exists." });
-        }
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            TokenHash = tokenHash,
+            Type = UserTokenType.Invite,
+            ExpiresAt = expiresAt,
+            CreatedAt = now
+        });
 
-        var response = new ApiResponse<CreateUserResponse>(
-            new CreateUserResponse(user.Id, user.Email, user.FirstName, user.LastName, user.IsActive, user.CreatedAt),
-            timeProvider.GetUtcNow());
+        await db.SaveChangesAsync(cancellationToken);
 
-        return Results.Created($"/api/v1/users/{user.Id}", response);
+        // TODO: send invite email instead of returning raw token
+        return Results.Created(
+            $"/api/v1/users/{userId}",
+            new InviteUserResponse(userId, request.Email, request.FirstName, request.LastName, rawToken, expiresAt));
     }
 }

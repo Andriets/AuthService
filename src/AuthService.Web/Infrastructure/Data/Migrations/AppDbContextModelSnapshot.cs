@@ -191,6 +191,10 @@ namespace AuthService.Web.Infrastructure.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<bool>("IsSystem")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_system");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -272,10 +276,18 @@ namespace AuthService.Web.Infrastructure.Data.Migrations
                         .HasColumnType("character varying(255)")
                         .HasColumnName("email");
 
+                    b.Property<int>("FailedLoginAttempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("failed_login_attempts");
+
                     b.Property<string>("FirstName")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)")
                         .HasColumnName("first_name");
+
+                    b.Property<bool>("IsActivated")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_activated");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean")
@@ -286,6 +298,10 @@ namespace AuthService.Web.Infrastructure.Data.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("last_name");
 
+                    b.Property<DateTimeOffset?>("LockedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("locked_at");
+
                     b.Property<string>("PasswordHash")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
@@ -295,11 +311,17 @@ namespace AuthService.Web.Infrastructure.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
 
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("username");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("Email")
+                    b.HasIndex("Username")
                         .IsUnique()
-                        .HasDatabaseName("uq_users_email");
+                        .HasDatabaseName("uq_users_username");
 
                     b.ToTable("users", (string)null);
                 });
@@ -339,6 +361,82 @@ namespace AuthService.Web.Infrastructure.Data.Migrations
                         .HasDatabaseName("uq_provider_user");
 
                     b.ToTable("user_logins", (string)null);
+                });
+
+            modelBuilder.Entity("AuthService.Web.Core.Entities.UserPasswordHistory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("password_hash");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "CreatedAt")
+                        .HasDatabaseName("ix_user_password_history_user_id_created_at");
+
+                    b.ToTable("user_password_history", (string)null);
+                });
+
+            modelBuilder.Entity("AuthService.Web.Core.Entities.UserToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("token_hash");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("type");
+
+                    b.Property<DateTimeOffset?>("UsedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("used_at");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique()
+                        .HasDatabaseName("uq_user_tokens_token_hash");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_user_tokens_user_id");
+
+                    b.ToTable("user_tokens", (string)null);
                 });
 
             modelBuilder.Entity("AuthService.Web.Core.Entities.RefreshToken", b =>
@@ -448,6 +546,28 @@ namespace AuthService.Web.Infrastructure.Data.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("AuthService.Web.Core.Entities.UserPasswordHistory", b =>
+                {
+                    b.HasOne("AuthService.Web.Core.Entities.User", "User")
+                        .WithMany("UserPasswordHistory")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("AuthService.Web.Core.Entities.UserToken", b =>
+                {
+                    b.HasOne("AuthService.Web.Core.Entities.User", "User")
+                        .WithMany("UserTokens")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("AuthService.Web.Core.Entities.AuthenticationProvider", b =>
                 {
                     b.Navigation("UserLogins");
@@ -486,6 +606,10 @@ namespace AuthService.Web.Infrastructure.Data.Migrations
                     b.Navigation("TenantUsers");
 
                     b.Navigation("UserLogins");
+
+                    b.Navigation("UserPasswordHistory");
+
+                    b.Navigation("UserTokens");
                 });
 #pragma warning restore 612, 618
         }

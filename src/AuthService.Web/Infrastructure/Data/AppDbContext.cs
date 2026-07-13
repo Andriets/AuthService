@@ -15,6 +15,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<AuthenticationProvider> AuthenticationProviders => Set<AuthenticationProvider>();
     public DbSet<UserLogin> UserLogins => Set<UserLogin>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<UserToken> UserTokens => Set<UserToken>();
+    public DbSet<UserPasswordHistory> UserPasswordHistory => Set<UserPasswordHistory>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

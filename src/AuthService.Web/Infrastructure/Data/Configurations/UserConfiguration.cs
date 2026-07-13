@@ -13,14 +13,19 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.HasKey(u => u.Id);
         builder.Property(u => u.Id).HasColumnName("id");
 
+        builder.Property(u => u.Username)
+            .HasColumnName("username")
+            .HasMaxLength(30)
+            .IsRequired();
+
+        builder.HasIndex(u => u.Username)
+            .HasDatabaseName("uq_users_username")
+            .IsUnique();
+
         builder.Property(u => u.Email)
             .HasColumnName("email")
             .HasMaxLength(255)
             .IsRequired();
-
-        builder.HasIndex(u => u.Email)
-            .HasDatabaseName("uq_users_email")
-            .IsUnique();
 
         builder.Property(u => u.FirstName)
             .HasColumnName("first_name")
@@ -37,6 +42,17 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.IsActive)
             .HasColumnName("is_active")
             .IsRequired();
+
+        builder.Property(u => u.IsActivated)
+            .HasColumnName("is_activated")
+            .IsRequired();
+
+        builder.Property(u => u.FailedLoginAttempts)
+            .HasColumnName("failed_login_attempts")
+            .IsRequired();
+
+        builder.Property(u => u.LockedAt)
+            .HasColumnName("locked_at");
 
         builder.Property(u => u.CreatedAt)
             .HasColumnName("created_at")

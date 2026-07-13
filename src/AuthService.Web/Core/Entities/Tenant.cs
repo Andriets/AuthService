@@ -3,6 +3,7 @@ namespace AuthService.Web.Core.Entities;
 public class Tenant : BaseEntity<Guid>
 {
     public string Name { get; set; } = string.Empty;
+    public bool IsSystem { get; set; }
 
     // Navigation properties
     public ICollection<TenantUser> TenantUsers { get; set; } = [];

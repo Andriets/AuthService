@@ -1,7 +1,3 @@
-namespace AuthService.Web.Features.Users.CreateUser;
+namespace AuthService.Web.Features.Users.InviteUser;
 
-public record CreateUserRequest(
-    string Email,
-    string? FirstName,
-    string? LastName,
-    string? Password);
+public record InviteUserRequest(string Email, string? FirstName, string? LastName);

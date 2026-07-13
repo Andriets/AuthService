@@ -1,9 +1,9 @@
-namespace AuthService.Web.Features.Users.CreateUser;
+namespace AuthService.Web.Features.Users.InviteUser;
 
-public record CreateUserResponse(
-    Guid Id,
+public record InviteUserResponse(
+    Guid UserId,
     string Email,
     string? FirstName,
     string? LastName,
-    bool IsActive,
-    DateTimeOffset CreatedAt);
+    string InviteToken,
+    DateTimeOffset TokenExpiresAt);

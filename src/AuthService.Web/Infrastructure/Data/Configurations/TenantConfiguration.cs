@@ -18,6 +18,10 @@ public class TenantConfiguration : IEntityTypeConfiguration<Tenant>
             .HasMaxLength(200)
             .IsRequired();
 
+        builder.Property(t => t.IsSystem)
+            .HasColumnName("is_system")
+            .IsRequired();
+
         builder.Property(t => t.CreatedAt)
             .HasColumnName("created_at")
             .IsRequired();

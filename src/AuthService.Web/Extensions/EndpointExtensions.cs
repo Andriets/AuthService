@@ -1,3 +1,4 @@
+using AuthService.Web.Core.Filters;
 using AuthService.Web.Core.Interfaces;
 
 namespace AuthService.Web.Extensions;
@@ -21,8 +22,8 @@ public static class EndpointExtensions
     {
         var endpoints = app.Services.GetRequiredService<IEnumerable<IEndpoint>>();
 
-        // TODO: add .RequireAuthorization() when auth is implemented
-        var group = app.MapGroup("/api");
+        var group = app.MapGroup("/api")
+            .AddEndpointFilter<ValidationFilter>();
 
         foreach (var endpoint in endpoints)
             endpoint.MapEndpoint(group);

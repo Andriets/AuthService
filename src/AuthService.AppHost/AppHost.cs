@@ -6,7 +6,7 @@ var postgres = builder.AddAzurePostgresFlexibleServer("postgres")
     .RunAsContainer(c => c
         .WithDataVolume()
         .WithHostPort(5433)
-        //.WithPgAdmin()
+        .WithPgAdmin()
     )
     .AddDatabase("AuthDB");
 
