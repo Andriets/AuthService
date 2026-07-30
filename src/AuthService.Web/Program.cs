@@ -22,6 +22,27 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 });
 
 builder.AddServiceDefaults();
+
+// Key Vault is only wired in when deployed (AppHost only references "kv" in publish mode)
+if (builder.Configuration.GetConnectionString("kv") is not null)
+{
+    builder.Configuration.AddAzureKeyVaultSecrets("kv");
+}
+
+// Local override: Web's own file/user-secrets config wins over the AppHost-injected
+// local-container connection string, or over Key Vault when deployed.
+var localConfig = new ConfigurationBuilder()
+    .AddJsonFile("appsettings.json", optional: true)
+    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true)
+    .AddUserSecrets<Program>(optional: true)
+    .Build();
+
+var localConnectionString = localConfig.GetConnectionString("AuthDB");
+if (!string.IsNullOrEmpty(localConnectionString))
+{
+    builder.Configuration["ConnectionStrings:AuthDB"] = localConnectionString;
+}
+
 builder.AddNpgsqlDbContext<AppDbContext>("AuthDB");
 
 builder.Services.AddProblemDetails(configure =>

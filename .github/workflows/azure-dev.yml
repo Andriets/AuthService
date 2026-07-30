@@ -56,8 +56,22 @@ jobs:
           dotnet tool install --global dotnet-ef
           dotnet ef migrations bundle --project src/AuthService.Web/AuthService.Web.csproj --output efbundle
 
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Fetch DB connection string from Key Vault
+        id: db-connection
+        run: |
+          CONN=$(az keyvault secret show --vault-name kv-jsrps7y3h2vak --name "connectionstrings--AuthDB" --query value -o tsv)
+          echo "::add-mask::$CONN"
+          echo "connection=$CONN" >> "$GITHUB_OUTPUT"
+
       - name: Run EF Migrations
-        run: ./efbundle --connection "${{ secrets.DATABASE_CONNECTION_STRING }}"
+        run: ./efbundle --connection "${{ steps.db-connection.outputs.connection }}"
 
   deploy:
     name: Deploy to Azure
