@@ -1,4 +1,6 @@
 using Aspire.Hosting;
+using Aspire.Hosting.Azure;
+using Azure.Provisioning.ContainerRegistry;
 using Azure.Provisioning.KeyVault;
 
 var builder = DistributedApplication.CreateBuilder(args);
@@ -22,8 +24,17 @@ if (builder.ExecutionContext.IsPublishMode)
     // This project was originally deployed via azd's implicit environment (no explicit
     // AddAzureContainerAppEnvironment call), so WithAzdResourceNaming() keeps the generated
     // resource names aligned with what's already deployed instead of creating duplicates.
-    builder.AddAzureContainerAppEnvironment("acaEnv")
+    var acaEnv = builder.AddAzureContainerAppEnvironment("acaEnv")
         .WithAzdResourceNaming();
+
+    // Without an explicit pull identity, Aspire creates a brand-new one on every deploy,
+    // which collides with the AcrPull role assignment from the previous deploy's identity
+    // (RoleAssignmentUpdateNotPermitted) since Azure won't let an existing role assignment's
+    // principal be swapped in place. Using one stable, named identity here fixes that.
+    var acrPullIdentity = builder.AddAzureUserAssignedIdentity("acrPullIdentity");
+    var acr = builder.CreateResourceBuilder(acaEnv.Resource.ContainerRegistry!);
+    acrPullIdentity.WithRoleAssignments(acr, ContainerRegistryBuiltInRole.AcrPull);
+    acaEnv.WithAcrPullIdentity(acrPullIdentity);
 
     var kv = builder.AddAzureKeyVault("kv");
 
@@ -32,7 +43,7 @@ if (builder.ExecutionContext.IsPublishMode)
     // without this, Aspire generates its own username that Azure silently ignores —
     // leaving Key Vault's connection string pointing at a user that was never actually
     // created, which fails auth in a confusing way (looks like a bad password, isn't).
-    var postgresUsername = builder.AddParameter("postgres-username", "mykola", publishValueAsDefault: true);
+    var postgresUsername = builder.AddParameter("pgAdminLogin", "mykola", publishValueAsDefault: true);
 
     // Redirects Aspire's own bookkeeping copy of the generated admin password into our
     // vault instead of a separate auto-created one. This is Aspire's internal plumbing,
