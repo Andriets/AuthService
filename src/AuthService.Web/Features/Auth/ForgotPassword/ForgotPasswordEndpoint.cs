@@ -24,6 +24,7 @@ public class ForgotPasswordEndpoint : IEndpoint
         ForgotPasswordRequest request,
         AppDbContext db,
         ITokenService tokenService,
+        IMessageService messages,
         TimeProvider timeProvider,
         ILogger<ForgotPasswordEndpoint> logger,
         CancellationToken cancellationToken)
@@ -32,11 +33,11 @@ public class ForgotPasswordEndpoint : IEndpoint
             .FirstOrDefaultAsync(u => u.Username == request.Username, cancellationToken);
 
         // Return 200 regardless to prevent username enumeration.
-        // TODO: once email is implemented, always return a generic message ("If the username exists, a reset link has been sent.")
+        // TODO: once email is implemented, always return a generic message (messages.AuthPasswordResetLinkSent())
         if (user is null)
         {
             logger.PasswordResetRequestedForUnknownUser();
-            return Results.Ok(new { message = "If the username exists, a reset link has been sent." });
+            return Results.Ok(new { message = messages.AuthPasswordResetLinkSent() });
         }
 
         var now = timeProvider.GetUtcNow();

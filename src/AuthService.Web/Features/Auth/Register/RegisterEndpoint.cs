@@ -28,6 +28,7 @@ public class RegisterEndpoint : IEndpoint
         AppDbContext db,
         IPasswordService passwordService,
         ITokenService tokenService,
+        IMessageService messages,
         IOptions<AuthOptions> authOptions,
         TimeProvider timeProvider,
         ILogger<RegisterEndpoint> logger,
@@ -39,7 +40,7 @@ public class RegisterEndpoint : IEndpoint
         if (usernameExists)
         {
             logger.UsernameConflict();
-            return Results.Conflict(new { error = $"Username '{request.Username}' is already taken." });
+            return Results.Conflict(new { error = messages.AuthUsernameAlreadyTaken(request.Username) });
         }
 
         var now = timeProvider.GetUtcNow();

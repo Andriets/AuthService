@@ -30,6 +30,7 @@ public class InviteUserEndpoint : IEndpoint
         ClaimsPrincipal claimsPrincipal,
         AppDbContext db,
         ITokenService tokenService,
+        IMessageService messages,
         TimeProvider timeProvider,
         ILogger<InviteUserEndpoint> logger,
         CancellationToken cancellationToken)
@@ -45,7 +46,7 @@ public class InviteUserEndpoint : IEndpoint
         if (emailExists)
         {
             logger.InviteConflict(invitedByUserId);
-            return Results.Conflict(new { error = "A user with this email already exists in this organization." });
+            return Results.Conflict(new { error = messages.ResourceAlreadyExistsInOrganization("user", "email") });
         }
 
         var now = timeProvider.GetUtcNow();

@@ -43,19 +43,19 @@ public class ResetPasswordEndpoint : IEndpoint
         if (userToken is null)
         {
             logger.TokenRejected("password-reset", "not-found");
-            return Results.Problem(statusCode: StatusCodes.Status400BadRequest, detail: "Invalid or expired reset token.");
+            return Results.Problem(statusCode: StatusCodes.Status400BadRequest, detail: messages.AuthInvalidResetToken());
         }
 
         if (userToken.UsedAt is not null)
         {
             logger.TokenRejectedForUser(userToken.User.Id, "password-reset", "already-used");
-            return Results.Problem(statusCode: StatusCodes.Status400BadRequest, detail: "Invalid or expired reset token.");
+            return Results.Problem(statusCode: StatusCodes.Status400BadRequest, detail: messages.AuthInvalidResetToken());
         }
 
         if (userToken.ExpiresAt <= timeProvider.GetUtcNow())
         {
             logger.TokenRejectedForUser(userToken.User.Id, "password-reset", "expired");
-            return Results.Problem(statusCode: StatusCodes.Status400BadRequest, detail: "Invalid or expired reset token.");
+            return Results.Problem(statusCode: StatusCodes.Status400BadRequest, detail: messages.AuthInvalidResetToken());
         }
 
         var user = userToken.User;
@@ -89,6 +89,6 @@ public class ResetPasswordEndpoint : IEndpoint
 
         logger.PasswordResetCompleted(user.Id);
 
-        return Results.Ok(new { message = "Password has been reset successfully." });
+        return Results.Ok(new { message = messages.AuthPasswordResetSuccess() });
     }
 }

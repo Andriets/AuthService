@@ -26,6 +26,9 @@
   <data name="Resource_AlreadyExists" xml:space="preserve">
     <value>A {0} with this {1} already exists.</value>
   </data>
+  <data name="Resource_AlreadyExistsInOrganization" xml:space="preserve">
+    <value>A {0} with this {1} already exists in this organization.</value>
+  </data>
   <data name="Field_InvalidFormat" xml:space="preserve">
     <value>'{0}' contains invalid characters.</value>
   </data>
@@ -44,5 +47,48 @@
   </data>
   <data name="Error_InternalServer" xml:space="preserve">
     <value>Internal Server Error</value>
+  </data>
+
+  <data name="Auth_InvalidCredentials" xml:space="preserve">
+    <value>Invalid credentials.</value>
+  </data>
+  <data name="Auth_AccountLocked" xml:space="preserve">
+    <value>Account is locked. Reset your password to regain access.</value>
+  </data>
+  <data name="Auth_AccountNotActivated" xml:space="preserve">
+    <value>Account not yet activated.</value>
+  </data>
+  <data name="Auth_AccountDisabled" xml:space="preserve">
+    <value>Account is disabled.</value>
+  </data>
+  <data name="Auth_InvalidRefreshToken" xml:space="preserve">
+    <value>Invalid refresh token.</value>
+  </data>
+  <data name="Auth_RefreshTokenExpired" xml:space="preserve">
+    <value>Refresh token has expired.</value>
+  </data>
+  <data name="Auth_RefreshTokenNotFound" xml:space="preserve">
+    <value>Refresh token not found.</value>
+  </data>
+  <data name="Auth_InvalidResetToken" xml:space="preserve">
+    <value>Invalid or expired reset token.</value>
+  </data>
+  <data name="Auth_PasswordResetSuccess" xml:space="preserve">
+    <value>Password has been reset successfully.</value>
+  </data>
+  <data name="Auth_InvalidInvitationToken" xml:space="preserve">
+    <value>Invalid or expired invitation token.</value>
+  </data>
+  <data name="Auth_AccountActivatedSuccess" xml:space="preserve">
+    <value>Account activated. You can now sign in.</value>
+  </data>
+  <data name="Auth_PasswordResetLinkSent" xml:space="preserve">
+    <value>If the username exists, a reset link has been sent.</value>
+  </data>
+  <data name="Auth_UsernameAlreadyTaken" xml:space="preserve">
+    <value>Username '{0}' is already taken.</value>
+  </data>
+  <data name="User_CannotDeleteOwnAccount" xml:space="preserve">
+    <value>You cannot delete your own account.</value>
   </data>
 </root>

@@ -74,3 +74,22 @@ dotnet ef migrations add <MigrationName> --project src/AuthService.Web
 # Apply migrations manually (applied automatically on startup in development)
 dotnet ef database update --project src/AuthService.Web
 ```
+
+## Infrastructure (Azure)
+
+Defined in `src/AuthService.AppHost/AppHost.cs`. `azd up` provisions:
+- Azure Container Apps (hosts the web app)
+- Azure Container Registry (Docker images)
+- Azure PostgreSQL Flexible Server + `AuthDB` database
+- Application Insights + Log Analytics Workspace
+
+Azure environment config lives in `.azure/`.
+
+## CI/CD
+
+GitHub Actions workflow at `.github/workflows/azure-dev.yml`:
+- Runs on every push and PR to `master`
+- **build-and-test** job: restore → build → test
+- **deploy** job: runs `azd up` on push to `master` only, authenticates via OIDC (no stored secrets)
+
+Required GitHub variables: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_ENV_NAME`, `AZURE_LOCATION`, `AZURE_SUBSCRIPTION_ID`

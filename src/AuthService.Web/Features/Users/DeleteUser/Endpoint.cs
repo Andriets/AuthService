@@ -26,6 +26,7 @@ public class DeleteUserEndpoint : IEndpoint
         Guid id,
         ClaimsPrincipal claimsPrincipal,
         AppDbContext db,
+        IMessageService messages,
         ILogger<DeleteUserEndpoint> logger,
         CancellationToken cancellationToken)
     {
@@ -34,7 +35,7 @@ public class DeleteUserEndpoint : IEndpoint
         if (id == callerId)
         {
             logger.DeleteBlockedSelfDelete(callerId);
-            return Results.Problem(statusCode: StatusCodes.Status400BadRequest, detail: "You cannot delete your own account.");
+            return Results.Problem(statusCode: StatusCodes.Status400BadRequest, detail: messages.UserCannotDeleteOwnAccount());
         }
 
         var tenantId = Guid.Parse(claimsPrincipal.FindFirst(JwtClaimConstants.TenantId)!.Value);

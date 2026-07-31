@@ -2,10 +2,8 @@ using System.Security.Claims;
 using AuthService.Web.Core.Constants;
 using AuthService.Web.Core.Entities;
 using AuthService.Web.Core.Interfaces;
-using AuthService.Web.Features.Users;
 using AuthService.Web.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 
 namespace AuthService.Web.Features.Users.AdminResetPassword;
 
@@ -34,6 +32,7 @@ public class AdminResetPasswordEndpoint : IEndpoint
         var tenantId = Guid.Parse(claimsPrincipal.FindFirst(JwtClaimConstants.TenantId)!.Value);
         var triggeredByUserId = Guid.Parse(claimsPrincipal.FindFirst(ClaimTypes.NameIdentifier)!.Value);
 
+        // BUG: admin from one organization can reset password for users from another one
         var userExists = await db.Users
             .AnyAsync(
                 u => u.Id == id && u.TenantUsers.Any(tu => tu.TenantId == tenantId),

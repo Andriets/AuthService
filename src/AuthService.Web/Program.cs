@@ -141,8 +141,8 @@ app.MapScalarApiReference(options =>
 {
     options
         .WithTitle("AuthService API")
-        .WithPreferredScheme("Bearer")
-        .WithHttpBearerAuthentication(bearer => bearer.Token = string.Empty);
+        .AddPreferredSecuritySchemes("Bearer")
+        .AddHttpAuthentication("Bearer", bearer => bearer.Token = string.Empty);
 });
 
 app.UseExceptionHandler();

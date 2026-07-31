@@ -28,6 +28,7 @@ public class SignInEndpoint : IEndpoint
         AppDbContext db,
         IPasswordService passwordService,
         ITokenService tokenService,
+        IMessageService messages,
         IOptions<AuthOptions> authOptions,
         TimeProvider timeProvider,
         ILogger<SignInEndpoint> logger,
@@ -44,25 +45,25 @@ public class SignInEndpoint : IEndpoint
         if (user is null)
         {
             logger.SignInFailedUnknownUser();
-            return Results.Problem(statusCode: StatusCodes.Status401Unauthorized, detail: "Invalid credentials.");
+            return Results.Problem(statusCode: StatusCodes.Status401Unauthorized, detail: messages.AuthInvalidCredentials());
         }
 
         if (user.LockedAt is not null)
         {
             logger.AuthBlockedByAccountState(user.Id, "locked");
-            return Results.Problem(statusCode: StatusCodes.Status403Forbidden, detail: "Account is locked. Reset your password to regain access.");
+            return Results.Problem(statusCode: StatusCodes.Status403Forbidden, detail: messages.AuthAccountLocked());
         }
 
         if (!user.IsActivated)
         {
             logger.AuthBlockedByAccountState(user.Id, "not activated");
-            return Results.Problem(statusCode: StatusCodes.Status403Forbidden, detail: "Account not yet activated.");
+            return Results.Problem(statusCode: StatusCodes.Status403Forbidden, detail: messages.AuthAccountNotActivated());
         }
 
         if (!user.IsActive)
         {
             logger.AuthBlockedByAccountState(user.Id, "disabled");
-            return Results.Problem(statusCode: StatusCodes.Status403Forbidden, detail: "Account is disabled.");
+            return Results.Problem(statusCode: StatusCodes.Status403Forbidden, detail: messages.AuthAccountDisabled());
         }
 
         if (!passwordService.Verify(request.Password, user.PasswordHash!))
@@ -77,7 +78,7 @@ public class SignInEndpoint : IEndpoint
             }
 
             await db.SaveChangesAsync(cancellationToken);
-            return Results.Problem(statusCode: StatusCodes.Status401Unauthorized, detail: "Invalid credentials.");
+            return Results.Problem(statusCode: StatusCodes.Status401Unauthorized, detail: messages.AuthInvalidCredentials());
         }
 
         var tenantUser = user.TenantUsers.Single();

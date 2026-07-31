@@ -1,6 +1,6 @@
 # AuthService
 
-.NET 10 Aspire application providing authentication and user management APIs, deployed to Azure via `azd`.
+Agent instructions and conventions for this repo. See `README.md` for project overview, tech stack, and setup.
 
 ## Projects
 
@@ -17,21 +17,11 @@ dotnet restore src/AuthService.slnx
 dotnet build src/AuthService.slnx --configuration Release
 dotnet test src/AuthService.slnx --configuration Release
 
-# Run locally (starts Aspire dashboard + PostgreSQL container + web app)
-dotnet run --project src/AuthService.AppHost
-
 # Deploy to Azure
 azd up          # provision infrastructure + deploy
 azd provision   # infrastructure only
 azd deploy      # code only (faster, skips infra)
 ```
-
-## Architecture
-
-- **Minimal APIs** with vertical slice feature folders under `src/AuthService.Web/Features/`
-- **EF Core** with PostgreSQL (`AppDbContext`), migrations in `Infrastructure/Data/Migrations/`
-- **FluentValidation** — validators co-located with their feature request classes
-- **Aspire** — local dev uses a PostgreSQL container; Azure uses PostgreSQL Flexible Server with managed identity auth
 
 ## Logging
 
@@ -50,28 +40,18 @@ azd deploy      # code only (faster, skips infra)
 - **Serilog** (configured in `AuthService.Web/Program.cs` via `Host.UseSerilog`) is the backend behind `ILoggerFactory`. Always go through `ILogger<T>` / the generated `LoggerMessage` methods — never call Serilog's static `Log.*` API directly, and don't add a second logging framework.
 - Traces/metrics are intentionally on a separate pipeline (OpenTelemetry in `AuthService.ServiceDefaults`, exported via `UseAzureMonitor()`) from logs (Serilog's own sinks). Don't try to unify them by routing logs through the OTel logging bridge — that path has a known reliability bug with Azure Monitor (logs silently don't arrive).
 
-## Infrastructure (Azure)
+## Response Messages
 
-Defined in `src/AuthService.AppHost/AppHost.cs`. `azd up` provisions:
-- Azure Container Apps (hosts the web app)
-- Azure Container Registry (Docker images)
-- Azure PostgreSQL Flexible Server + `AuthDB` database
-- Application Insights + Log Analytics Workspace
-
-Azure environment config lives in `.azure/`.
-
-## CI/CD
-
-GitHub Actions workflow at `.github/workflows/azure-dev.yml`:
-- Runs on every push and PR to `master`
-- **build-and-test** job: restore → build → test
-- **deploy** job: runs `azd up` on push to `master` only, authenticates via OIDC (no stored secrets)
-
-Required GitHub variables: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_ENV_NAME`, `AZURE_LOCATION`, `AZURE_SUBSCRIPTION_ID`
+- Never hardcode a user-facing string (`Results.Problem(... detail: "...")`, `Results.Conflict(new { error = "..." })`, `Results.Ok(new { message = "..." })`, etc.) directly in endpoint code. Add a method to `IMessageService` / `MessageService` instead, backed by an entry in `Resources/Messages.resx`.
+- **To add a new response message:**
+  1. Add a key to `AuthService.Web/Resources/Messages.resx`, e.g. `Auth_InvalidCredentials` → `Invalid credentials.` (use `{0}`, `{1}`, ... placeholders for parameterized text).
+  2. Add the matching method to `Core/Interfaces/IMessageService.cs` and implement it in `Core/Services/MessageService.cs`, following the existing `_rm.GetString("Key", CultureInfo.CurrentCulture)!` pattern (use `string.Format` for parameterized messages).
+  3. Inject `IMessageService messages` into the endpoint's `Handler` method (same DI pattern as `AppDbContext db`) and call it, e.g. `messages.AuthInvalidCredentials()` — see `Features/Auth/SignIn/SignInEndpoint.cs`.
+- Before adding a new key, check for an existing reusable one (e.g. `ResourceAlreadyExists` / `ResourceAlreadyExistsInOrganization` for "already exists" conflicts) rather than adding a near-duplicate.
+- This applies to response bodies only — validator messages already go through `IMessageService` (see any `*Validator.cs`), and internal domain/seed data (e.g. default role names) is not a response message.
+- **Not the same as logging**: `[LoggerMessage]` templates (see Logging above) stay as plain string literals — they're operational/diagnostic text for devs and log tooling (Application Insights, Kusto queries), not the API contract, and localizing them would fragment log search. Only response messages go through resources.
 
 ## Tests
 
-Uses **NUnit** (not xUnit). Run with:
-```bash
-dotnet test src/AuthService.slnx
-```
+- Uses **NUnit** (not xUnit).
+- After implementing or changing any behavior, run the corresponding unit tests (`dotnet test src/AuthService.slnx`). If none exist for the change, add them — don't leave new/changed behavior uncovered.

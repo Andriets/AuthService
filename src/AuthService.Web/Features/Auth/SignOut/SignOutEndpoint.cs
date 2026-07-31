@@ -26,6 +26,7 @@ public class SignOutEndpoint : IEndpoint
         ClaimsPrincipal claimsPrincipal,
         AppDbContext db,
         ITokenService tokenService,
+        IMessageService messages,
         TimeProvider timeProvider,
         ILogger<SignOutEndpoint> logger,
         CancellationToken cancellationToken)
@@ -39,7 +40,7 @@ public class SignOutEndpoint : IEndpoint
         if (storedToken is null || storedToken.RevokedAt is not null)
         {
             logger.TokenRejectedForUser(userId, "refresh", "not-found-or-already-revoked");
-            return Results.Problem(statusCode: StatusCodes.Status404NotFound, detail: "Refresh token not found.");
+            return Results.Problem(statusCode: StatusCodes.Status404NotFound, detail: messages.AuthRefreshTokenNotFound());
         }
 
         storedToken.RevokedAt = timeProvider.GetUtcNow();

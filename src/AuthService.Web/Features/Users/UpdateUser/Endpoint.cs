@@ -29,6 +29,7 @@ public class UpdateUserEndpoint : IEndpoint
         UpdateUserRequest request,
         ClaimsPrincipal claimsPrincipal,
         AppDbContext db,
+        IMessageService messages,
         TimeProvider timeProvider,
         ILogger<UpdateUserEndpoint> logger,
         CancellationToken cancellationToken)
@@ -62,7 +63,7 @@ public class UpdateUserEndpoint : IEndpoint
             if (emailTaken)
             {
                 logger.UpdateConflict(id, updatedByUserId);
-                return Results.Conflict(new { error = "A user with this email already exists in this organization." });
+                return Results.Conflict(new { error = messages.ResourceAlreadyExistsInOrganization("user", "email") });
             }
         }
 

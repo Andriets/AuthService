@@ -28,6 +28,7 @@ public class ActivateEndpoint : IEndpoint
         AppDbContext db,
         IPasswordService passwordService,
         ITokenService tokenService,
+        IMessageService messages,
         TimeProvider timeProvider,
         ILogger<ActivateEndpoint> logger,
         CancellationToken cancellationToken)
@@ -43,19 +44,19 @@ public class ActivateEndpoint : IEndpoint
         if (userToken is null)
         {
             logger.TokenRejected("invite", "not-found");
-            return Results.Problem(statusCode: StatusCodes.Status400BadRequest, detail: "Invalid or expired invitation token.");
+            return Results.Problem(statusCode: StatusCodes.Status400BadRequest, detail: messages.AuthInvalidInvitationToken());
         }
 
         if (userToken.UsedAt is not null)
         {
             logger.TokenRejectedForUser(userToken.User.Id, "invite", "already-used");
-            return Results.Problem(statusCode: StatusCodes.Status400BadRequest, detail: "Invalid or expired invitation token.");
+            return Results.Problem(statusCode: StatusCodes.Status400BadRequest, detail: messages.AuthInvalidInvitationToken());
         }
 
         if (userToken.ExpiresAt <= timeProvider.GetUtcNow())
         {
             logger.TokenRejectedForUser(userToken.User.Id, "invite", "expired");
-            return Results.Problem(statusCode: StatusCodes.Status400BadRequest, detail: "Invalid or expired invitation token.");
+            return Results.Problem(statusCode: StatusCodes.Status400BadRequest, detail: messages.AuthInvalidInvitationToken());
         }
 
         var usernameExists = await db.Users
@@ -64,7 +65,7 @@ public class ActivateEndpoint : IEndpoint
         if (usernameExists)
         {
             logger.UsernameConflict();
-            return Results.Conflict(new { error = $"Username '{request.Username}' is already taken." });
+            return Results.Conflict(new { error = messages.AuthUsernameAlreadyTaken(request.Username) });
         }
 
         var now = timeProvider.GetUtcNow();
@@ -90,6 +91,6 @@ public class ActivateEndpoint : IEndpoint
 
         logger.AccountActivated(user.Id);
 
-        return Results.Ok(new { message = "Account activated. You can now sign in." });
+        return Results.Ok(new { message = messages.AuthAccountActivatedSuccess() });
     }
 }
