@@ -4,6 +4,7 @@ using AuthService.Web.Core.Options;
 using AuthService.Web.Features.Auth;
 using AuthService.Web.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace AuthService.Web.Features.Auth.SignIn;
@@ -29,6 +30,7 @@ public class SignInEndpoint : IEndpoint
         ITokenService tokenService,
         IOptions<AuthOptions> authOptions,
         TimeProvider timeProvider,
+        ILogger<SignInEndpoint> logger,
         CancellationToken cancellationToken)
     {
         var user = await db.Users
@@ -40,22 +42,39 @@ public class SignInEndpoint : IEndpoint
             .FirstOrDefaultAsync(u => u.Username == request.Username, cancellationToken);
 
         if (user is null)
+        {
+            logger.SignInFailedUnknownUser();
             return Results.Problem(statusCode: StatusCodes.Status401Unauthorized, detail: "Invalid credentials.");
+        }
 
         if (user.LockedAt is not null)
+        {
+            logger.AuthBlockedByAccountState(user.Id, "locked");
             return Results.Problem(statusCode: StatusCodes.Status403Forbidden, detail: "Account is locked. Reset your password to regain access.");
+        }
 
         if (!user.IsActivated)
+        {
+            logger.AuthBlockedByAccountState(user.Id, "not activated");
             return Results.Problem(statusCode: StatusCodes.Status403Forbidden, detail: "Account not yet activated.");
+        }
 
         if (!user.IsActive)
+        {
+            logger.AuthBlockedByAccountState(user.Id, "disabled");
             return Results.Problem(statusCode: StatusCodes.Status403Forbidden, detail: "Account is disabled.");
+        }
 
         if (!passwordService.Verify(request.Password, user.PasswordHash!))
         {
             user.FailedLoginAttempts++;
+            logger.SignInFailedInvalidPassword(user.Id, user.FailedLoginAttempts);
+
             if (user.FailedLoginAttempts >= 10)
+            {
                 user.LockedAt = timeProvider.GetUtcNow();
+                logger.AccountLocked(user.Id);
+            }
 
             await db.SaveChangesAsync(cancellationToken);
             return Results.Problem(statusCode: StatusCodes.Status401Unauthorized, detail: "Invalid credentials.");
@@ -82,6 +101,8 @@ public class SignInEndpoint : IEndpoint
         });
 
         await db.SaveChangesAsync(cancellationToken);
+
+        logger.UserSignedIn(user.Id);
 
         return Results.Ok(new AuthResponse(accessToken, rawRefreshToken, expiresAt));
     }

@@ -2,8 +2,10 @@ using System.Security.Claims;
 using AuthService.Web.Core.Common;
 using AuthService.Web.Core.Constants;
 using AuthService.Web.Core.Interfaces;
+using AuthService.Web.Features.Users;
 using AuthService.Web.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace AuthService.Web.Features.Users.UpdateUser;
 
@@ -28,6 +30,7 @@ public class UpdateUserEndpoint : IEndpoint
         ClaimsPrincipal claimsPrincipal,
         AppDbContext db,
         TimeProvider timeProvider,
+        ILogger<UpdateUserEndpoint> logger,
         CancellationToken cancellationToken)
     {
         if (!request.Email.HasValue && !request.FirstName.HasValue
@@ -36,6 +39,7 @@ public class UpdateUserEndpoint : IEndpoint
                 new Dictionary<string, string[]> { ["body"] = ["At least one field must be provided."] });
 
         var tenantId = Guid.Parse(claimsPrincipal.FindFirst(JwtClaimConstants.TenantId)!.Value);
+        var updatedByUserId = Guid.Parse(claimsPrincipal.FindFirst(ClaimTypes.NameIdentifier)!.Value);
 
         var user = await db.Users
             .FirstOrDefaultAsync(
@@ -56,7 +60,10 @@ public class UpdateUserEndpoint : IEndpoint
                     cancellationToken);
 
             if (emailTaken)
+            {
+                logger.UpdateConflict(id, updatedByUserId);
                 return Results.Conflict(new { error = "A user with this email already exists in this organization." });
+            }
         }
 
         var now = timeProvider.GetUtcNow();
@@ -68,6 +75,8 @@ public class UpdateUserEndpoint : IEndpoint
         user.UpdatedAt = now;
 
         await db.SaveChangesAsync(cancellationToken);
+
+        logger.UserUpdated(user.Id, updatedByUserId);
 
         return Results.Ok(new ApiResponse<UpdateUserResponse>(
             new UpdateUserResponse(user.Id, user.Username, user.Email, user.FirstName, user.LastName, user.IsActive, now),

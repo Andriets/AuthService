@@ -1,8 +1,10 @@
 using System.Security.Claims;
 using AuthService.Web.Core.Constants;
 using AuthService.Web.Core.Interfaces;
+using AuthService.Web.Features.Users;
 using AuthService.Web.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace AuthService.Web.Features.Users.DeleteUser;
 
@@ -24,12 +26,16 @@ public class DeleteUserEndpoint : IEndpoint
         Guid id,
         ClaimsPrincipal claimsPrincipal,
         AppDbContext db,
+        ILogger<DeleteUserEndpoint> logger,
         CancellationToken cancellationToken)
     {
         var callerId = Guid.Parse(claimsPrincipal.FindFirst(ClaimTypes.NameIdentifier)!.Value);
 
         if (id == callerId)
+        {
+            logger.DeleteBlockedSelfDelete(callerId);
             return Results.Problem(statusCode: StatusCodes.Status400BadRequest, detail: "You cannot delete your own account.");
+        }
 
         var tenantId = Guid.Parse(claimsPrincipal.FindFirst(JwtClaimConstants.TenantId)!.Value);
 
@@ -43,6 +49,8 @@ public class DeleteUserEndpoint : IEndpoint
 
         db.Users.Remove(user);
         await db.SaveChangesAsync(cancellationToken);
+
+        logger.UserDeleted(user.Id, callerId);
 
         return Results.NoContent();
     }

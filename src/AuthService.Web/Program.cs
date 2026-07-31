@@ -8,13 +8,45 @@ using AuthService.Web.Core.Services;
 using AuthService.Web.Extensions;
 using AuthService.Web.Infrastructure.Data;
 using AuthService.Web.Middleware;
+using Microsoft.ApplicationInsights.Extensibility;
 using Scalar.AspNetCore;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog((context, services, configuration) =>
+{
+    configuration
+        .ReadFrom.Configuration(context.Configuration)
+        .ReadFrom.Services(services)
+        .Enrich.FromLogContext()
+        .Enrich.WithMachineName()
+        .Enrich.WithEnvironmentName()
+        .WriteTo.Console();
+
+    // Local dev: Aspire injects this when the app runs under the AppHost, feeding the
+    // Aspire dashboard's Structured Logs tab. The sink reads the standard OTEL_EXPORTER_OTLP_*
+    // env vars itself, so no further endpoint/protocol configuration is needed here.
+    if (!string.IsNullOrWhiteSpace(context.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]))
+    {
+        configuration.WriteTo.OpenTelemetry();
+    }
+
+    // Production: writes directly to Application Insights via its own sink rather than through
+    // the OTel logging bridge — see the "Key architecture finding" note in the logging plan for why
+    // (a confirmed bug drops Serilog-sourced logs/traces when bridged through UseAzureMonitor()).
+    var appInsightsConnectionString = context.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"];
+    if (!string.IsNullOrWhiteSpace(appInsightsConnectionString))
+    {
+        var telemetryConfiguration = TelemetryConfiguration.CreateDefault();
+        telemetryConfiguration.ConnectionString = appInsightsConnectionString;
+        configuration.WriteTo.ApplicationInsights(telemetryConfiguration, TelemetryConverter.Traces);
+    }
+});
 
 builder.Services.ConfigureHttpJsonOptions(options =>
 {

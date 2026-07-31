@@ -4,6 +4,7 @@ using AuthService.Web.Core.Options;
 using AuthService.Web.Features.Auth;
 using AuthService.Web.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace AuthService.Web.Features.Auth.Refresh;
@@ -28,6 +29,7 @@ public class RefreshEndpoint : IEndpoint
         ITokenService tokenService,
         IOptions<AuthOptions> authOptions,
         TimeProvider timeProvider,
+        ILogger<RefreshEndpoint> logger,
         CancellationToken cancellationToken)
     {
         var tokenHash = tokenService.HashToken(request.RefreshToken);
@@ -43,7 +45,10 @@ public class RefreshEndpoint : IEndpoint
             .FirstOrDefaultAsync(rt => rt.TokenHash == tokenHash, cancellationToken);
 
         if (storedToken is null)
+        {
+            logger.TokenRejected("refresh", "not-found");
             return Results.Problem(statusCode: StatusCodes.Status401Unauthorized, detail: "Invalid refresh token.");
+        }
 
         if (storedToken.RevokedAt is not null)
         {
@@ -52,19 +57,29 @@ public class RefreshEndpoint : IEndpoint
                 .Where(rt => rt.UserId == storedToken.UserId && rt.RevokedAt == null)
                 .ExecuteUpdateAsync(s => s.SetProperty(rt => rt.RevokedAt, timeProvider.GetUtcNow()), cancellationToken);
 
+            logger.TokenRejectedForUser(storedToken.UserId, "refresh", "replay-detected");
             return Results.Problem(statusCode: StatusCodes.Status401Unauthorized, detail: "Invalid refresh token.");
         }
 
         if (storedToken.ExpiresAt <= timeProvider.GetUtcNow())
+        {
+            logger.TokenRejectedForUser(storedToken.UserId, "refresh", "expired");
             return Results.Problem(statusCode: StatusCodes.Status401Unauthorized, detail: "Refresh token has expired.");
+        }
 
         var user = storedToken.User;
 
         if (user.LockedAt is not null)
+        {
+            logger.AuthBlockedByAccountState(user.Id, "locked");
             return Results.Problem(statusCode: StatusCodes.Status403Forbidden, detail: "Account is locked. Reset your password to regain access.");
+        }
 
         if (!user.IsActivated)
+        {
+            logger.AuthBlockedByAccountState(user.Id, "not activated");
             return Results.Problem(statusCode: StatusCodes.Status403Forbidden, detail: "Account not yet activated.");
+        }
 
         var tenantUser = user.TenantUsers.Single();
         var tenant = tenantUser.Tenant;
@@ -87,6 +102,8 @@ public class RefreshEndpoint : IEndpoint
         });
 
         await db.SaveChangesAsync(cancellationToken);
+
+        logger.TokenRefreshed(user.Id);
 
         return Results.Ok(new AuthResponse(accessToken, rawRefreshToken, expiresAt));
     }

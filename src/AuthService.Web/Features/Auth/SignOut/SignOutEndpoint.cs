@@ -1,8 +1,10 @@
 using System.Security.Claims;
 using AuthService.Web.Core.Constants;
 using AuthService.Web.Core.Interfaces;
+using AuthService.Web.Features.Auth;
 using AuthService.Web.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace AuthService.Web.Features.Auth.SignOut;
 
@@ -25,6 +27,7 @@ public class SignOutEndpoint : IEndpoint
         AppDbContext db,
         ITokenService tokenService,
         TimeProvider timeProvider,
+        ILogger<SignOutEndpoint> logger,
         CancellationToken cancellationToken)
     {
         var userId = Guid.Parse(claimsPrincipal.FindFirst(ClaimTypes.NameIdentifier)!.Value);
@@ -34,10 +37,15 @@ public class SignOutEndpoint : IEndpoint
             .FirstOrDefaultAsync(rt => rt.TokenHash == tokenHash && rt.UserId == userId, cancellationToken);
 
         if (storedToken is null || storedToken.RevokedAt is not null)
+        {
+            logger.TokenRejectedForUser(userId, "refresh", "not-found-or-already-revoked");
             return Results.Problem(statusCode: StatusCodes.Status404NotFound, detail: "Refresh token not found.");
+        }
 
         storedToken.RevokedAt = timeProvider.GetUtcNow();
         await db.SaveChangesAsync(cancellationToken);
+
+        logger.UserSignedOut(userId);
 
         return Results.NoContent();
     }

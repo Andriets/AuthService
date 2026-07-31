@@ -1,8 +1,10 @@
 using AuthService.Web.Core.Constants;
 using AuthService.Web.Core.Entities;
 using AuthService.Web.Core.Interfaces;
+using AuthService.Web.Features.Auth;
 using AuthService.Web.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace AuthService.Web.Features.Auth.ResetPassword;
 
@@ -27,6 +29,7 @@ public class ResetPasswordEndpoint : IEndpoint
         IMessageService messages,
         ITokenService tokenService,
         TimeProvider timeProvider,
+        ILogger<ResetPasswordEndpoint> logger,
         CancellationToken cancellationToken)
     {
         var tokenHash = tokenService.HashToken(request.Token);
@@ -37,11 +40,23 @@ public class ResetPasswordEndpoint : IEndpoint
                 t => t.TokenHash == tokenHash && t.Type == UserTokenType.PasswordReset,
                 cancellationToken);
 
-        if (userToken is null || userToken.UsedAt is not null)
+        if (userToken is null)
+        {
+            logger.TokenRejected("password-reset", "not-found");
             return Results.Problem(statusCode: StatusCodes.Status400BadRequest, detail: "Invalid or expired reset token.");
+        }
+
+        if (userToken.UsedAt is not null)
+        {
+            logger.TokenRejectedForUser(userToken.User.Id, "password-reset", "already-used");
+            return Results.Problem(statusCode: StatusCodes.Status400BadRequest, detail: "Invalid or expired reset token.");
+        }
 
         if (userToken.ExpiresAt <= timeProvider.GetUtcNow())
+        {
+            logger.TokenRejectedForUser(userToken.User.Id, "password-reset", "expired");
             return Results.Problem(statusCode: StatusCodes.Status400BadRequest, detail: "Invalid or expired reset token.");
+        }
 
         var user = userToken.User;
 
@@ -71,6 +86,8 @@ public class ResetPasswordEndpoint : IEndpoint
             .ExecuteUpdateAsync(s => s.SetProperty(rt => rt.RevokedAt, now), cancellationToken);
 
         await db.SaveChangesAsync(cancellationToken);
+
+        logger.PasswordResetCompleted(user.Id);
 
         return Results.Ok(new { message = "Password has been reset successfully." });
     }
