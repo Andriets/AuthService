@@ -1,8 +1,10 @@
 using AuthService.Web.Core.Entities;
 using AuthService.Web.Core.Interfaces;
 using AuthService.Web.Core.Options;
+using AuthService.Web.Features.Auth;
 using AuthService.Web.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace AuthService.Web.Features.Auth.Register;
@@ -28,13 +30,17 @@ public class RegisterEndpoint : IEndpoint
         ITokenService tokenService,
         IOptions<AuthOptions> authOptions,
         TimeProvider timeProvider,
+        ILogger<RegisterEndpoint> logger,
         CancellationToken cancellationToken)
     {
         var usernameExists = await db.Users
             .AnyAsync(u => u.Username == request.Username, cancellationToken);
 
         if (usernameExists)
+        {
+            logger.UsernameConflict();
             return Results.Conflict(new { error = $"Username '{request.Username}' is already taken." });
+        }
 
         var now = timeProvider.GetUtcNow();
         var passwordHash = passwordService.Hash(request.Password);
@@ -107,6 +113,8 @@ public class RegisterEndpoint : IEndpoint
         });
 
         await db.SaveChangesAsync(cancellationToken);
+
+        logger.UserRegistered(user.Id, tenant.Id);
 
         var response = new RegisterResponse(
             accessToken,

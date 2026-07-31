@@ -2,8 +2,10 @@ using System.Security.Claims;
 using AuthService.Web.Core.Common;
 using AuthService.Web.Core.Constants;
 using AuthService.Web.Core.Interfaces;
+using AuthService.Web.Features.Users;
 using AuthService.Web.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace AuthService.Web.Features.Users.GetUsers;
 
@@ -23,6 +25,7 @@ public class GetUsersEndpoint : IEndpoint
         ClaimsPrincipal claimsPrincipal,
         AppDbContext db,
         TimeProvider timeProvider,
+        ILogger<GetUsersEndpoint> logger,
         CancellationToken cancellationToken,
         int page = 1,
         int pageSize = 20)
@@ -53,6 +56,8 @@ public class GetUsersEndpoint : IEndpoint
                 u.LockedAt,
                 u.CreatedAt))
             .ToListAsync(cancellationToken);
+
+        logger.UsersListed(tenantId, users.Count);
 
         return Results.Ok(new PagedResponse<GetUsersResponse>(users, totalCount, page, pageSize, timeProvider.GetUtcNow()));
     }

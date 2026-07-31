@@ -56,6 +56,15 @@ All endpoints are prefixed with `/v1`.
 
 Responses are wrapped in a standard `ApiResponse<T>` envelope.
 
+## Observability
+
+Logging uses **Serilog**, configured in `AuthService.Web/Program.cs`. Traces and metrics flow through the OpenTelemetry pipeline set up in `AuthService.ServiceDefaults`.
+
+- **Local dev**: run via the AppHost (`dotnet run --project src/AuthService.AppHost`) — the Aspire dashboard opens automatically, and its **Structured Logs**, **Traces**, and **Metrics** tabs show everything live, no extra setup needed.
+- **Azure (production)**: an Application Insights resource is provisioned alongside the other infra. In the Azure Portal, use **Live Metrics** for a real-time stream, **Logs** to run KQL queries over ingested data, **Failures** for exceptions, and **Transaction search** to trace a single request end to end.
+
+Logs never contain PII or secrets — no passwords, tokens, reset codes, emails, or usernames. Where an actor needs identifying, the internal user ID is logged instead. See `CLAUDE.md` for the full logging convention.
+
 ## Database Migrations
 
 ```bash

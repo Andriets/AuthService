@@ -2,8 +2,10 @@ using System.Security.Claims;
 using AuthService.Web.Core.Constants;
 using AuthService.Web.Core.Entities;
 using AuthService.Web.Core.Interfaces;
+using AuthService.Web.Features.Users;
 using AuthService.Web.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace AuthService.Web.Features.Users.InviteUser;
 
@@ -29,9 +31,11 @@ public class InviteUserEndpoint : IEndpoint
         AppDbContext db,
         ITokenService tokenService,
         TimeProvider timeProvider,
+        ILogger<InviteUserEndpoint> logger,
         CancellationToken cancellationToken)
     {
         var tenantId = Guid.Parse(claimsPrincipal.FindFirst(JwtClaimConstants.TenantId)!.Value);
+        var invitedByUserId = Guid.Parse(claimsPrincipal.FindFirst(ClaimTypes.NameIdentifier)!.Value);
 
         var emailExists = await db.Users
             .AnyAsync(
@@ -39,7 +43,10 @@ public class InviteUserEndpoint : IEndpoint
                 cancellationToken);
 
         if (emailExists)
+        {
+            logger.InviteConflict(invitedByUserId);
             return Results.Conflict(new { error = "A user with this email already exists in this organization." });
+        }
 
         var now = timeProvider.GetUtcNow();
         var expiresAt = now.AddDays(InviteTokenLifetimeDays);
@@ -76,6 +83,8 @@ public class InviteUserEndpoint : IEndpoint
         });
 
         await db.SaveChangesAsync(cancellationToken);
+
+        logger.UserInvited(userId, invitedByUserId);
 
         // TODO: send invite email instead of returning raw token
         return Results.Created(

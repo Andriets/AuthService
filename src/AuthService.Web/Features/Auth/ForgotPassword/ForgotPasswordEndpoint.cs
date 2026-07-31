@@ -1,8 +1,10 @@
 using AuthService.Web.Core.Constants;
 using AuthService.Web.Core.Entities;
 using AuthService.Web.Core.Interfaces;
+using AuthService.Web.Features.Auth;
 using AuthService.Web.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace AuthService.Web.Features.Auth.ForgotPassword;
 
@@ -23,6 +25,7 @@ public class ForgotPasswordEndpoint : IEndpoint
         AppDbContext db,
         ITokenService tokenService,
         TimeProvider timeProvider,
+        ILogger<ForgotPasswordEndpoint> logger,
         CancellationToken cancellationToken)
     {
         var user = await db.Users
@@ -31,7 +34,10 @@ public class ForgotPasswordEndpoint : IEndpoint
         // Return 200 regardless to prevent username enumeration.
         // TODO: once email is implemented, always return a generic message ("If the username exists, a reset link has been sent.")
         if (user is null)
+        {
+            logger.PasswordResetRequestedForUnknownUser();
             return Results.Ok(new { message = "If the username exists, a reset link has been sent." });
+        }
 
         var now = timeProvider.GetUtcNow();
         var expiresAt = now.AddHours(1);
@@ -48,6 +54,8 @@ public class ForgotPasswordEndpoint : IEndpoint
         });
 
         await db.SaveChangesAsync(cancellationToken);
+
+        logger.PasswordResetRequested(user.Id);
 
         // TODO: send password reset email instead of returning token in response
         var resetLink = $"https://<frontend>/reset-password?token={rawToken}";

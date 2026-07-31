@@ -37,6 +37,7 @@ if (builder.ExecutionContext.IsPublishMode)
     acaEnv.WithAcrPullIdentity(acrPullIdentity);
 
     var kv = builder.AddAzureKeyVault("kv");
+    var appInsights = builder.AddAzureApplicationInsights("appInsights");
 
     // The Postgres server already exists with admin login "mykola" (set up before this
     // was Aspire-managed). administratorLogin is immutable on an existing server, so
@@ -52,7 +53,8 @@ if (builder.ExecutionContext.IsPublishMode)
     postgresServer.WithPasswordAuthentication(kv, postgresUsername);
 
     web.WithRoleAssignments(kv, KeyVaultBuiltInRole.KeyVaultSecretsUser)
-        .WithReference(kv);
+        .WithReference(kv)
+        .WithReference(appInsights);
 }
 else
 {

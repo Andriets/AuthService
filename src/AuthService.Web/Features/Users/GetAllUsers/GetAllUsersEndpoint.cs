@@ -1,8 +1,10 @@
 using AuthService.Web.Core.Common;
 using AuthService.Web.Core.Constants;
 using AuthService.Web.Core.Interfaces;
+using AuthService.Web.Features.Users;
 using AuthService.Web.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace AuthService.Web.Features.Users.GetAllUsers;
 
@@ -21,6 +23,7 @@ public class GetAllUsersEndpoint : IEndpoint
     private static async Task<IResult> Handler(
         AppDbContext db,
         TimeProvider timeProvider,
+        ILogger<GetAllUsersEndpoint> logger,
         CancellationToken cancellationToken,
         int page = 1,
         int pageSize = 20)
@@ -50,6 +53,8 @@ public class GetAllUsersEndpoint : IEndpoint
                 u.TenantUsers.First().TenantId,
                 u.TenantUsers.First().Tenant.Name))
             .ToListAsync(cancellationToken);
+
+        logger.AllUsersListed(users.Count);
 
         return Results.Ok(new PagedResponse<GetAllUsersResponse>(users, totalCount, page, pageSize, timeProvider.GetUtcNow()));
     }
