@@ -21,11 +21,21 @@ var web = builder.AddProject<Projects.AuthService_Web>("authservice-web")
 if (builder.ExecutionContext.IsPublishMode)
 {
     // AddAzureContainerAppEnvironment provisions its own Log Analytics Workspace for
-    // container logs, and AddAzureApplicationInsights provisions a second one of its own
-    // if it isn't told to reuse an existing one (RoleAssignmentUpdateNotPermitted-style
-    // silent duplication, but for workspaces instead of identities). Creating one
-    // explicitly and sharing it between both keeps the resource group to a single workspace.
-    var laws = builder.AddAzureLogAnalyticsWorkspace("laws");
+    // container logs (law-jsrps7y3h2vak), and AddAzureApplicationInsights provisions a
+    // second one of its own if it isn't told to reuse an existing one. A Container Apps
+    // environment's log-analytics binding is immutable after creation — WithAzureLogAnalyticsWorkspace
+    // on an already-deployed acaEnv can't repoint it, confirmed by customerId staying put across
+    // a deploy that tried. So instead of creating a *third* workspace and asking acaEnv to adopt
+    // it, this references the workspace acaEnv already immutably owns and points appInsights at
+    // that one instead — the one piece of this relationship that actually can be changed in place.
+    //
+    // This PublishAsExisting is a one-time artifact of retrofitting explicit modeling onto an
+    // already-running environment, not the general pattern — a fresh environment doesn't have
+    // this problem (acaEnv and laws would be created together, wired in correctly from the
+    // start). If this repo is ever forked to bootstrap a brand-new environment, replace this
+    // line with a plain `builder.AddAzureLogAnalyticsWorkspace("laws")`.
+    var laws = builder.AddAzureLogAnalyticsWorkspace("laws")
+        .PublishAsExisting("law-jsrps7y3h2vak", "rg-Auth");
 
     // Role assignments require the Container App environment to be explicitly modeled.
     // This project was originally deployed via azd's implicit environment (no explicit
