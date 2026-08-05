@@ -23,6 +23,16 @@ azd provision   # infrastructure only
 azd deploy      # code only (faster, skips infra)
 ```
 
+## Azure Infrastructure (AppHost)
+
+- **Hidden sub-resource rule (hard rule)**: Aspire only reasons about the resource graph built in `AppHost.cs` — it has no awareness of what's already deployed in Azure. Any `AddAzureX(...)` call that has an implicit infrastructure requirement (a workspace, identity, environment, registry, ...) will silently provision its own private copy of that requirement unless you explicitly construct it as a named resource and pass it in. Left on defaults, this creates duplicate resources in Azure on every fix that touches `AppHost.cs` — it's already happened twice (an auto-created Log Analytics Workspace duplicating the one `acaEnv` already owns; an auto-created pull identity that changed on every deploy and broke role assignments).
+- **Before adding any new `AddAzureX(...)` call**: check its overloads / `With*` extension methods for a parameter shaped like a workspace, identity, environment, or registry. If one exists, that method is telling you it has a hidden dependency. Check whether something already in the graph satisfies it (see the list below) before letting it default.
+- **Resources currently shared on purpose** — reuse these rather than letting a new `AddAzureX(...)` call mint its own:
+  - `laws` (`AddAzureLogAnalyticsWorkspace`) — the log/telemetry backend. Shared between `acaEnv` (via `WithAzureLogAnalyticsWorkspace`) and `appInsights` (via the `AddAzureApplicationInsights(name, laws)` overload). Application Insights cannot exist without a workspace-based backend, and a Container Apps environment separately needs one for platform logs — without sharing, each provisions its own.
+  - `acrPullIdentity` (`AddAzureUserAssignedIdentity`) — the identity Azure uses to pull the container image, attached to `acaEnv` via `WithAcrPullIdentity`. Without an explicit, stable identity here, Aspire generates a new one on every deploy, which then collides with the previous deploy's `AcrPull` role assignment (`RoleAssignmentUpdateNotPermitted`).
+  - `authservice_web_identity` — **not** shared with `acrPullIdentity` on purpose. This one is auto-created by Aspire because `web.WithRoleAssignments(kv, ...)` needs a principal to hold the `KeyVaultSecretsUser` role; it's what the running app's `DefaultAzureCredential` authenticates as. Keep it separate from the ACR pull identity — it's a different trust boundary (app code accessing Key Vault vs. the platform pulling images), and merging them would give a runtime app compromise `AcrPull` rights it doesn't need.
+- **Before merging any `AppHost.cs` change**, run `azd provision --preview` locally to see exactly what Azure would create/update/delete — catches an accidental new resource before it reaches the pipeline.
+
 ## Logging
 
 - Never call `logger.LogInformation(...)` / `LogWarning(...)` etc. directly in endpoint code. Add a `[LoggerMessage]`-attributed partial method instead, then call the generated extension method.

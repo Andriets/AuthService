@@ -20,12 +20,20 @@ var web = builder.AddProject<Projects.AuthService_Web>("authservice-web")
 
 if (builder.ExecutionContext.IsPublishMode)
 {
+    // AddAzureContainerAppEnvironment provisions its own Log Analytics Workspace for
+    // container logs, and AddAzureApplicationInsights provisions a second one of its own
+    // if it isn't told to reuse an existing one (RoleAssignmentUpdateNotPermitted-style
+    // silent duplication, but for workspaces instead of identities). Creating one
+    // explicitly and sharing it between both keeps the resource group to a single workspace.
+    var laws = builder.AddAzureLogAnalyticsWorkspace("laws");
+
     // Role assignments require the Container App environment to be explicitly modeled.
     // This project was originally deployed via azd's implicit environment (no explicit
     // AddAzureContainerAppEnvironment call), so WithAzdResourceNaming() keeps the generated
     // resource names aligned with what's already deployed instead of creating duplicates.
     var acaEnv = builder.AddAzureContainerAppEnvironment("acaEnv")
-        .WithAzdResourceNaming();
+        .WithAzdResourceNaming()
+        .WithAzureLogAnalyticsWorkspace(laws);
 
     // Without an explicit pull identity, Aspire creates a brand-new one on every deploy,
     // which collides with the AcrPull role assignment from the previous deploy's identity
@@ -37,7 +45,7 @@ if (builder.ExecutionContext.IsPublishMode)
     acaEnv.WithAcrPullIdentity(acrPullIdentity);
 
     var kv = builder.AddAzureKeyVault("kv");
-    var appInsights = builder.AddAzureApplicationInsights("appInsights");
+    var appInsights = builder.AddAzureApplicationInsights("appInsights", laws);
 
     // The Postgres server already exists with admin login "mykola" (set up before this
     // was Aspire-managed). administratorLogin is immutable on an existing server, so
